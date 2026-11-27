@@ -55,6 +55,24 @@
   .field{display:block;margin-bottom:12px}
   .field:last-child{margin-bottom:0}
   .field > span{display:block;font-size:12.5px;color:var(--muted);margin-bottom:5px}
+  .field .fnote{font-style:normal;color:#a3a8b4;font-size:11.5px;margin-left:6px}
+
+  /* 예배 3종 선택(위로·입관·발인) */
+  .svc-chips{display:flex;gap:6px;margin-bottom:8px}
+  .svc-chip{
+    flex:1 1 0; min-width:0; font:inherit; font-size:12.5px; font-weight:600; color:var(--muted);
+    background:#fbfaf8; border:1px solid var(--line); border-radius:999px; padding:9px 6px; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap;
+    transition:background .12s ease,color .12s ease,border-color .12s ease;
+  }
+  .svc-chip:before{content:"+";font-size:11px;font-weight:700;opacity:.55;line-height:1}
+  .svc-chip.active{background:var(--navy);border-color:var(--navy);color:#fff}
+  .svc-chip.active:before{content:"✓";opacity:1}
+  .svc-row{margin-bottom:7px}
+  .svc-row:last-child{margin-bottom:0}
+  .svc-row:not([hidden]){display:flex;align-items:center;gap:8px}
+  .svc-row b{flex:0 0 auto;width:54px;font-size:12px;font-weight:700;color:var(--navy-soft)}
+  .svc-row input{flex:1 1 auto;min-width:0;font-size:15px;padding:10px 11px}
   input,textarea,select{
     width:100%; font:inherit; font-size:16px; color:var(--ink); background:#fbfaf8;
     border:1px solid var(--line); border-radius:11px; padding:11px 12px; outline:none; appearance:none;
@@ -232,9 +250,25 @@
       <label class="field"><span>장례식장 · 호실 · 주소</span>
         <textarea id="fHall" rows="2" placeholder="○○장례식장 201호실 (○○시 ○○로 00)"></textarea>
       </label>
-      <label class="field"><span>위로예배 일시 · 출발</span>
-        <input id="fService" placeholder="11월 27일(금) 낮 12시 30분(교회출발)" autocomplete="off">
-      </label>
+      <div class="field">
+        <span>예배 일시 · 출발<em class="fnote">있는 예배만 켜 두세요</em></span>
+        <div class="svc-chips" id="svcChips" role="group" aria-label="예배 선택">
+          <button type="button" class="svc-chip active" data-svc="consolation" aria-pressed="true">위로예배</button>
+          <button type="button" class="svc-chip" data-svc="encoffin" aria-pressed="false">입관예배</button>
+          <button type="button" class="svc-chip" data-svc="departure" aria-pressed="false">발인예배</button>
+        </div>
+        <div id="svcInputs">
+          <label class="svc-row" data-svc="consolation"><b>위로예배</b>
+            <input id="fSvcConsolation" placeholder="11월 27일(금) 낮 12시 30분(교회출발)" autocomplete="off">
+          </label>
+          <label class="svc-row" data-svc="encoffin" hidden><b>입관예배</b>
+            <input id="fSvcEncoffin" placeholder="11월 27일(금) 오후 3시(장례식장)" autocomplete="off">
+          </label>
+          <label class="svc-row" data-svc="departure" hidden><b>발인예배</b>
+            <input id="fSvcDeparture" placeholder="11월 28일(토) 오전 6시 30분(교회출발)" autocomplete="off">
+          </label>
+        </div>
+      </div>
       <label class="field"><span>맺음말</span>
         <textarea id="fClosing" rows="3"></textarea>
       </label>
@@ -243,7 +277,7 @@
     <div class="card">
       <div class="card-head"><h2>카톡 부고 붙여넣기</h2><span class="hint">자동 채우기</span></div>
       <p class="hint">받으신 부고 문구를 그대로 붙여넣고 아래 버튼을 누르면 칸이 자동으로 채워집니다.</p>
-      <textarea id="fRaw" rows="5" placeholder="[Web발신]&#10;故 홍길동성도 소천(김샘물권사 시부, 1-1구역)&#10;&#10;▶장례식장:○○장례식장 201호실 (○○시 ○○로 00)&#10;&#10;▶위로예배: 11월 27일(금) 낮 12시 30분(교회출발)"></textarea>
+      <textarea id="fRaw" rows="5" placeholder="[Web발신]&#10;故 홍길동성도 소천(김샘물권사 시부, 1-1구역)&#10;&#10;▶장례식장:○○장례식장 201호실 (○○시 ○○로 00)&#10;&#10;▶위로예배: 11월 27일(금) 낮 12시 30분(교회출발)&#10;&#10;▶발인예배: 11월 28일(토) 오전 6시 30분(교회출발)"></textarea>
       <div class="row" style="margin-top:9px">
         <button class="btn btn-soft" id="btnParse" type="button">자동 채우기</button>
         <button class="btn btn-ghost" id="btnClearRaw" type="button">지우기</button>
@@ -420,6 +454,19 @@
    ══════════════════════════════════════════════════════════ */
 var LS_KEY = 'cheonsan.funeral-sms.v1';
 var DEFAULT_CLOSING = '슬픔 당한 유가족분들을 위해 그리스도의 사랑의 마음으로 기도해 주시길 바랍니다.';
+/* 장례마다 있는 예배가 달라서 3가지를 각각 켜고 끈다. 화면·문구 순서도 이 순서를 따른다. */
+var SERVICE_DEFS = [
+  { key: 'consolation', label: '위로예배', short: '위로', inputId: 'fSvcConsolation' },
+  { key: 'encoffin', label: '입관예배', short: '입관', inputId: 'fSvcEncoffin' },
+  { key: 'departure', label: '발인예배', short: '발인', inputId: 'fSvcDeparture' }
+];
+function defaultServices() {
+  return {
+    consolation: { on: true, value: '' },
+    encoffin: { on: false, value: '' },
+    departure: { on: false, value: '' }
+  };
+}
 var SAMPLE_MEMBERS = [
   { name: '홍길동', role: '집사', group: '1-1구역', phone: '010-0000-0001' },
   { name: '김샘물', role: '권사', group: '2-3구역', phone: '010-0000-0002' },
@@ -484,7 +531,7 @@ function debounce(fn, ms) {
    3. 상태
    ══════════════════════════════════════════════════════════ */
 var DEFAULT_STATE = {
-  funeral: { deceased: '', family: '', hall: '', service: '', closing: DEFAULT_CLOSING },
+  funeral: { deceased: '', family: '', hall: '', closing: DEFAULT_CLOSING, services: defaultServices() },
   raw: '',
   channel: 'at',
   members: [],
@@ -506,9 +553,25 @@ function loadState() {
     var raw = localStorage.getItem(LS_KEY);
     if (!raw) return base;
     var saved = JSON.parse(raw);
-    if (saved.funeral) Object.keys(base.funeral).forEach(function (k) {
-      if (typeof saved.funeral[k] === 'string') base.funeral[k] = saved.funeral[k];
-    });
+    if (saved.funeral) {
+      Object.keys(base.funeral).forEach(function (k) {
+        if (k !== 'services' && typeof saved.funeral[k] === 'string') base.funeral[k] = saved.funeral[k];
+      });
+      var svc = saved.funeral.services;
+      if (svc && typeof svc === 'object') {
+        SERVICE_DEFS.forEach(function (d) {
+          var one = svc[d.key];
+          if (!one || typeof one !== 'object') return;
+          base.funeral.services[d.key] = {
+            on: !!one.on,
+            value: typeof one.value === 'string' ? one.value : ''
+          };
+        });
+      } else if (typeof saved.funeral.service === 'string' && saved.funeral.service) {
+        // 예전 단일 ‘위로예배’ 칸의 저장값은 위로예배로 이어받는다
+        base.funeral.services.consolation = { on: true, value: saved.funeral.service };
+      }
+    }
     if (Array.isArray(saved.members)) base.members = saved.members;
     if (Array.isArray(saved.selected)) base.selected = saved.selected;
     if (Array.isArray(saved.logs)) base.logs = saved.logs.slice(0, 100);
@@ -536,8 +599,11 @@ function buildParts() {
     deceased: (f.deceased || '').trim(),
     family: (f.family || '').trim(),
     hall: (f.hall || '').trim(),
-    service: (f.service || '').trim(),
-    closing: (f.closing || '').trim()
+    closing: (f.closing || '').trim(),
+    services: SERVICE_DEFS.map(function (d) {
+      var s = (f.services && f.services[d.key]) || {};
+      return { key: d.key, label: d.label, on: !!s.on, value: (s.value || '').trim() };
+    })
   };
 }
 
@@ -549,7 +615,12 @@ function buildMessage(withHints) {
   lines.push('');
   lines.push('▶장례식장:' + (p.hall || (withHints ? '(장례식장)' : '')));
   lines.push('');
-  if (p.service) { lines.push('▶위로예배: ' + p.service); lines.push(''); }
+  // 켜 두고 내용까지 적은 예배만 위로 → 입관 → 발인 순서로
+  p.services.forEach(function (s) {
+    if (!s.on || !s.value) return;
+    lines.push('▶' + s.label + ': ' + s.value);
+    lines.push('');
+  });
   if (p.closing) lines.push('▶' + p.closing);
   return lines.join('\n');
 }
@@ -568,8 +639,12 @@ function previewHtml() {
   out.push('');
   out.push('▶장례식장:' + (p.hall ? esc(p.hall) : '<span class="ph">장례식장 · 호실 · 주소</span>'));
   out.push('');
-  out.push('▶위로예배: ' + (p.service ? esc(p.service) : '<span class="ph">일시 · 출발</span>'));
-  out.push('');
+  // 켜진 예배만 차례대로. 켜 두고 아직 안 적었으면 흐린 안내문으로 보여 줌
+  p.services.forEach(function (s) {
+    if (!s.on) return;
+    out.push('▶' + s.label + ': ' + (s.value ? esc(s.value) : '<span class="ph">일시 · 출발</span>'));
+    out.push('');
+  });
   out.push('▶' + (p.closing ? esc(p.closing) : '<span class="ph">맺음말</span>'));
   return out.join('\n');
 }
@@ -639,6 +714,46 @@ function tidyFamily(s) {
   return t;
 }
 
+/** 일시로 보이는 문구인지 (짧은 표기 ‘발인은 11월 28일’을 예배 줄로 인정할 때 쓴다) */
+function looksLikeTime(s) {
+  return /^(?:\d{1,2}\s*월|\d{4}\s*[-./]\s*\d{1,2}|\d{1,2}\s*[일시]|\d{1,2}\s*:\s*\d{1,2}|오전|오후|낮|밤|아침|저녁|새벽|정오|당일|익일)/.test(String(s || '').trim());
+}
+
+/**
+ * 한 줄(▶로 나눈 조각)이 예배 안내인지 보고 맞으면 { key, value }를 돌려준다.
+ *   위로예배: 11월 27일(금) 낮 12시 30분(교회출발)
+ *   ▶발인은 11월 28일(토) 오전 6시 30분
+ * ‘위로의 말씀…’처럼 예배가 아닌 문장은 받지 않는다.
+ */
+function matchServiceLine(line) {
+  var body = String(line || '')
+    .replace(/^[\s\-–—·•]+/, '')
+    .replace(/(위로|입관|발인)\s+예배/g, '$1예배')
+    .trim();
+  if (!body) return null;
+  for (var i = 0; i < SERVICE_DEFS.length; i++) {
+    var d = SERVICE_DEFS[i];
+    var token = body.indexOf(d.label) === 0 ? d.label : (body.indexOf(d.short) === 0 ? d.short : '');
+    if (!token) continue;
+    var rest = body.slice(token.length);
+    var marked = /^[\s:：]*(?:예배)?\s*(?:일시|시간)?\s*[:：]/.test(rest); // ‘예배·일시’로 이어지거나 콜론이 붙은 표기
+    var value = rest
+      .replace(/^[\s:：]+/, '')
+      .replace(/^(?:은|는|이|가)\s*/, '')
+      .replace(/^예배\s*/, '')
+      .replace(/^(?:일시|시간)\s*/, '')
+      .replace(/^[\s:：\-–—·]+/, '')
+      .trim();
+    if (!value) {
+      if (token === d.label) return { key: d.key, value: '' }; // ‘▶위로예배’만 있고 일시는 아래 줄인 경우
+      continue;
+    }
+    if (token === d.short && !marked && !looksLikeTime(value)) continue; // ‘위로의 말씀’ 같은 문장 배제
+    return { key: d.key, value: value };
+  }
+  return null;
+}
+
 function parseBugo(raw) {
   var out = {};
   var text = String(raw || '').replace(/\r\n?/g, '\n');
@@ -664,10 +779,28 @@ function parseBugo(raw) {
   m = flat.match(/(?:장례식장|장례식장명|빈소|장례원)\s*[:：]?\s*([^\n]{2,90})/);
   if (m) out.hall = m[1].replace(/^[\-·:：\s]+/, '').trim();
 
-  // 4) 위로예배 (없으면 입관·발인 예배)
-  m = flat.match(/위로예배\s*(?:일시)?\s*[:：]?\s*([^\n]{2,90})/);
-  if (!m) m = flat.match(/(?:입관|발인|장례)예배\s*[:：]?\s*([^\n]{2,90})/);
-  if (m) out.service = m[1].trim();
+  // 4) 예배 3종(위로·입관·발인) — 원문에 적힌 예배만 골라 담는다
+  var segs = [];
+  lines.forEach(function (line) {
+    line.split(/[▶▷►]/).forEach(function (seg) {
+      seg = seg.trim();
+      if (seg) segs.push(seg);
+    });
+  });
+  var services = {};
+  for (var si = 0; si < segs.length; si++) {
+    var hit = matchServiceLine(segs[si]);
+    if (!hit) continue;
+    var val = hit.value;
+    // ‘▶입관예배’만 적고 일시는 다음 줄에 둔 부고도 이어 읽는다
+    if (!val && si + 1 < segs.length && looksLikeTime(segs[si + 1]) && !matchServiceLine(segs[si + 1])) {
+      val = segs[si + 1].replace(/^[\s:：\-–—·]+/, '').trim();
+      si += 1;
+    }
+    if (!services[hit.key]) services[hit.key] = val;
+  }
+  if (Object.keys(services).length) out.services = services;
+  out.service = services.consolation || ''; // 예전 단일 칸과의 호환
 
   // 5) 맺음말: ▶로 시작하는 줄 중 장례식장·예배 안내가 아닌 문장
   var closingRe = /^(슬픔|삼가|고인|유가족|마음|기도|부디|하나님|주님|위로|애도|조의|명복)/;
@@ -675,6 +808,7 @@ function parseBugo(raw) {
     var line = lines[i].replace(/^[▶▷►\-\s]+/, '').trim();
     if (!line) continue;
     if (/^(장례식장|빈소|장례원|위로예배|입관예배|발인예배|장례예배)/.test(line)) continue;
+    if (matchServiceLine(line)) continue;
     if (closingRe.test(line) && !/소천|별세|선종/.test(line)) { out.closing = line; break; }
   }
 
@@ -689,13 +823,34 @@ function parseBugo(raw) {
 
 function applyParsed(parsed, rawText) {
   var filled = [];
-  var map = { deceased: '고인', family: '유가족', hall: '장례식장', service: '위로예배', closing: '맺음말' };
-  Object.keys(parsed).forEach(function (k) {
+  var map = { deceased: '고인', family: '유가족', hall: '장례식장', closing: '맺음말' };
+  ['deceased', 'family', 'hall'].forEach(function (k) {
     var v = (parsed[k] || '').trim();
     if (!v) return;
     S.funeral[k] = v;
     filled.push(map[k]);
   });
+
+  // 예배 3종: 원문에 있는 예배만 켜고, 없는 예배는 끄고 칸도 비운다
+  var svc = parsed.services || {};
+  var svcKeys = Object.keys(svc);
+  if (svcKeys.length) {
+    SERVICE_DEFS.forEach(function (d) {
+      var has = svcKeys.indexOf(d.key) !== -1;
+      S.funeral.services[d.key] = { on: has, value: has ? String(svc[d.key] || '').trim() : '' };
+      if (has) filled.push(d.label);
+    });
+  } else if (parsed.service) {
+    S.funeral.services.consolation = { on: true, value: String(parsed.service).trim() };
+    filled.push('위로예배');
+  }
+
+  var close = (parsed.closing || '').trim();
+  if (close) {
+    S.funeral.closing = close;
+    filled.push(map.closing);
+  }
+
   S.raw = rawText;
   if (filled.length) {
     syncFieldsFromState();
@@ -1295,11 +1450,29 @@ function loadServerLogs() {
 /* ══════════════════════════════════════════════════════════
    11. 화면 동기화 · 이벤트
    ══════════════════════════════════════════════════════════ */
+function renderServices() {
+  SERVICE_DEFS.forEach(function (d) {
+    var s = S.funeral.services[d.key] || { on: false, value: '' };
+    var chip = $all('#svcChips [data-svc="' + d.key + '"]')[0];
+    if (chip) {
+      chip.classList.toggle('active', !!s.on);
+      chip.setAttribute('aria-pressed', s.on ? 'true' : 'false');
+    }
+    var row = $all('#svcInputs [data-svc="' + d.key + '"]')[0];
+    if (row) {
+      if (s.on) row.removeAttribute('hidden');
+      else row.setAttribute('hidden', '');
+    }
+    var input = $('#' + d.inputId);
+    if (input && input.value !== (s.value || '')) input.value = s.value || '';
+  });
+}
+
 function syncFieldsFromState() {
   $('#fDeceased').value = S.funeral.deceased;
   $('#fFamily').value = S.funeral.family;
   $('#fHall').value = S.funeral.hall;
-  $('#fService').value = S.funeral.service;
+  renderServices();
   $('#fClosing').value = S.funeral.closing;
 }
 
@@ -1350,7 +1523,26 @@ function bindAll() {
   bindField('#fDeceased', 'deceased');
   bindField('#fFamily', 'family');
   bindField('#fHall', 'hall');
-  bindField('#fService', 'service');
+  SERVICE_DEFS.forEach(function (d) {
+    var input = $('#' + d.inputId);
+    if (!input) return;
+    input.addEventListener('input', function (e) {
+      if (!S.funeral.services[d.key]) S.funeral.services[d.key] = { on: true, value: '' };
+      S.funeral.services[d.key].value = e.target.value;
+      saveStateNoPreview();
+      renderPreviewThrottled();
+    });
+  });
+  $all('#svcChips .svc-chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      var key = chip.getAttribute('data-svc');
+      var s = S.funeral.services[key] || (S.funeral.services[key] = { on: false, value: '' });
+      s.on = !s.on; // 내용은 지우지 않고 남겨두어 다시 켜면 되살아남
+      renderServices();
+      saveState();
+      renderPreview();
+    });
+  });
   bindField('#fClosing', 'closing');
 
   // 자동 채우기
@@ -1566,6 +1758,8 @@ window.__fs = {
   eucKrBytes: eucKrBytes,
   parseCsv: parseCsv,
   mapCsvRows: mapCsvRows,
+  SERVICE_DEFS: SERVICE_DEFS,
+  matchServiceLine: matchServiceLine,
   S: S,
   state: function () { return S; }
 };
